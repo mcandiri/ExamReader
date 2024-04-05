@@ -10,7 +10,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 ### Prerequisites
 
 Before you begin, ensure you have the following installed:
-- [.NET 5.0 SDK](https://dotnet.microsoft.com/download)
+- [.NET 7.0 SDK](https://dotnet.microsoft.com/download)
 - Any IDE with C# support (e.g., [Visual Studio](https://visualstudio.microsoft.com/), [VS Code](https://code.visualstudio.com/))
 
 ### Installation
