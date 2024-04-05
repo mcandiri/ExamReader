@@ -10,76 +10,97 @@
 </div>
 <div id="uploadResults"></div>
 
+
 <script>
+    // This script handles the form submission and the file upload process.
+    // It prevents the default form submission, checks for file selection,
+    // uploads the file using XMLHttpRequest, and displays the upload progress.
+
+    // Prevent the default form submission and handle the upload process.
     document.getElementById('fileUploadForm').addEventListener('submit', function (e) {
-        e.preventDefault(); // Prevent the default form submission.
+        e.preventDefault(); // Prevent the default form submission behavior.
 
-        resetUploadStatus(); // Resets the upload progress and status messages.
+        // Reset the status messages and the progress bar before a new upload starts.
+        resetUploadStatus();
 
+        // Ensure a file is selected before proceeding.
         const fileInput = document.getElementById('fileUpload');
         if (!fileInput.files.length) {
             updateUploadStatus('Please select a file to upload.', false);
-            return;
+            return; // Exit if no file is selected.
         }
 
-        const formData = new FormData(this); // Construct FormData object from the form.
-        const xhr = new XMLHttpRequest(); // Create a new XMLHttpRequest for async request.
-        xhr.open('POST', '/Home/Upload', true); // Initialize a POST request.
+        // Prepare the file to be uploaded via FormData object.
+        const formData = new FormData(this);
+        const xhr = new XMLHttpRequest(); // Create a new XMLHttpRequest for asynchronous file upload.
 
-        // Update the progress bar during the upload process.
+        // Configure the POST request to the server-side upload handler.
+        xhr.open('POST', '/Home/Upload', true);
+
+        // Monitor the progress of the upload and update the progress bar accordingly.
         xhr.upload.onprogress = function (e) {
             if (e.lengthComputable) {
-                const percentComplete = (e.loaded / e.total) * 100;
+                const percentComplete = (e.loaded / e.total) * 100; // Calculate the upload progress.
                 document.getElementById('uploadProgress').value = percentComplete;
                 updateUploadStatus(Math.round(percentComplete) + '% uploaded', true);
             }
         };
 
-        // Handle the response from the server.
+        // Handle the response from the server after the upload is completed.
         xhr.onload = function () {
-            if (xhr.status === 200) {
+            if (xhr.status === 200) { // Check if the upload was successful.
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
-                    // On successful upload and processing, display results.
-                    document.getElementById('uploadProgress').value = 100; // Ensure progress bar is full.
-                    setTimeout(function () { // Simulate processing delay for UX.
+                    document.getElementById('uploadProgress').value = 100; // Ensure the progress bar shows 100%.
+                    // Display the results after a short delay for better user experience.
+                    setTimeout(function () {
                         displayResults(response);
                     }, 500);
                 } else {
-                    // Handle errors or unsuccessful operations.
+                    // Show the error message if the upload was not successful.
                     updateUploadStatus(response.message, false);
                 }
             } else {
+                // Show a generic error message if the request failed.
                 updateUploadStatus('An error occurred during upload.', false);
             }
         };
 
-        xhr.send(formData); // Send the form data to the server.
+        // Send the FormData with the file to the server.
+        xhr.send(formData);
     });
 
+    // Resets the upload progress bar and status messages.
     function resetUploadStatus() {
-        document.getElementById('uploadProgress').value = 0;
-        document.getElementById('uploadStatus').innerText = '';
-        document.getElementById('uploadResults').innerHTML = ''; // Clear previous results.
+        document.getElementById('uploadProgress').value = 0; // Reset the progress bar to 0%.
+        document.getElementById('uploadStatus').innerText = ''; // Clear any previous status messages.
+        document.getElementById('uploadResults').innerHTML = ''; // Clear any previously displayed results.
     }
 
+    // Updates the status message displayed to the user.
+    // Indicates whether the file is currently uploading or if an error occurred.
     function updateUploadStatus(message, isUploading) {
         document.getElementById('uploadStatus').innerText = message;
         if (!isUploading) {
-            document.getElementById('uploadProgress').value = 0; // Reset progress bar if not uploading.
+            document.getElementById('uploadProgress').value = 0; // Reset the progress bar if not currently uploading.
         }
     }
 
+    // Displays the results of the file upload and processing.
+    // Shows the counts of correct, incorrect, and unanswered questions.
     function displayResults(response) {
-        const results = response.results;
+        const results = response.results; // Extract results from the response.
+        // Construct the HTML to display the results.
         const resultsHtml = `<p>Correct Answers: ${results.correctCount}</p>
                          <p>Incorrect Answers: ${results.incorrectCount}</p>
                          <p>Unanswered: ${results.unansweredCount}</p>
                          <p>Correct Questions: ${results.correctQuestions}</p>
                          <p>Incorrect Questions: ${results.incorrectQuestions}</p>
                          <p>Missing: ${results.unansweredQuestions}</p>`;
-        document.getElementById('uploadResults').innerHTML = resultsHtml;
-        updateUploadStatus('Processing complete!', false);
+        document.getElementById('uploadResults').innerHTML = resultsHtml; // Display the results on the page.
+        updateUploadStatus('Processing complete!', false); // Update the status message.
     }
 
-    </script>
+
+
+</script>
