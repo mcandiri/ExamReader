@@ -1,7 +1,7 @@
 
 # EXAM GRADER
 
-This ASP.NET Core application leverages the Azure Computer Vision API to automate the grading of multiple-choice tests. By processing scanned images of test sheets, it identifies student answers, compares them against a predefined answer key, and generates a summary of the grading outcome. This tool aims to enhance efficiency and accuracy in grading processes, making it an invaluable asset for educators and academic institutions.
+This ASP.NET Core application leverages the Azure Computer Vision API to automate the grading of multiple-choice tests. By processing scanned images of test sheets, it identifies student answers, compares them against a predefined answer key, and generates a summary of the grading outcome. This tool aims to enhance efficiency and accuracy in grading processes for educators and academic institutions.
 
 ## Getting Started
 
@@ -38,7 +38,6 @@ To start the application, run:
 ```
 dotnet run --project ExamReader
 ```
-Navigate to `http://localhost:5000/` in your web browser to view the application.
 
 ## Usage
 
