@@ -1,5 +1,4 @@
-
-# EXAM GRADER
+# TEST READER
 
 This ASP.NET Core application leverages the Azure Computer Vision API to automate the grading of multiple-choice tests. By processing scanned images of test sheets, it identifies student answers, compares them against a predefined answer key, and generates a summary of the grading outcome. This tool aims to enhance efficiency and accuracy in grading processes for educators and academic institutions.
 
