@@ -93,10 +93,10 @@
         // Construct the HTML to display the results.
         const resultsHtml = `<p>Correct Answers: ${results.correctCount}</p>
                          <p>Incorrect Answers: ${results.incorrectCount}</p>
-                         <p>Unanswered: ${results.unansweredCount}</p>
+                         <p>Unanswered or Unreadable: ${results.unansweredCount}</p>
                          <p>Correct Questions: ${results.correctQuestions}</p>
                          <p>Incorrect Questions: ${results.incorrectQuestions}</p>
-                         <p>Missing: ${results.unansweredQuestions}</p>`;
+                         <p>Unanswered or Unreadable Questions: ${results.unansweredQuestions}</p>`;
         document.getElementById('uploadResults').innerHTML = resultsHtml; // Display the results on the page.
         updateUploadStatus('Processing complete!', false); // Update the status message.
     }
