@@ -1,0 +1,85 @@
+﻿<div class="text-center">
+    <form id="fileUploadForm" method="post" enctype="multipart/form-data">
+        <label for="fileUpload">Select File:</label>
+        <input type="file" id="fileUpload" name="fileUpload" required />
+        <button type="submit">Upload</button>
+    </form>
+    <br>
+    <progress id="uploadProgress" value="0" max="100" style="width:100%;"></progress>
+    <p id="uploadStatus"></p>
+</div>
+<div id="uploadResults"></div>
+
+<script>
+    document.getElementById('fileUploadForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent the default form submission.
+
+        resetUploadStatus(); // Resets the upload progress and status messages.
+
+        const fileInput = document.getElementById('fileUpload');
+        if (!fileInput.files.length) {
+            updateUploadStatus('Please select a file to upload.', false);
+            return;
+        }
+
+        const formData = new FormData(this); // Construct FormData object from the form.
+        const xhr = new XMLHttpRequest(); // Create a new XMLHttpRequest for async request.
+        xhr.open('POST', '/Home/Upload', true); // Initialize a POST request.
+
+        // Update the progress bar during the upload process.
+        xhr.upload.onprogress = function (e) {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                document.getElementById('uploadProgress').value = percentComplete;
+                updateUploadStatus(Math.round(percentComplete) + '% uploaded', true);
+            }
+        };
+
+        // Handle the response from the server.
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                if (response.success) {
+                    // On successful upload and processing, display results.
+                    document.getElementById('uploadProgress').value = 100; // Ensure progress bar is full.
+                    setTimeout(function () { // Simulate processing delay for UX.
+                        displayResults(response);
+                    }, 500);
+                } else {
+                    // Handle errors or unsuccessful operations.
+                    updateUploadStatus(response.message, false);
+                }
+            } else {
+                updateUploadStatus('An error occurred during upload.', false);
+            }
+        };
+
+        xhr.send(formData); // Send the form data to the server.
+    });
+
+    function resetUploadStatus() {
+        document.getElementById('uploadProgress').value = 0;
+        document.getElementById('uploadStatus').innerText = '';
+        document.getElementById('uploadResults').innerHTML = ''; // Clear previous results.
+    }
+
+    function updateUploadStatus(message, isUploading) {
+        document.getElementById('uploadStatus').innerText = message;
+        if (!isUploading) {
+            document.getElementById('uploadProgress').value = 0; // Reset progress bar if not uploading.
+        }
+    }
+
+    function displayResults(response) {
+        const results = response.results;
+        const resultsHtml = `<p>Correct Answers: ${results.correctCount}</p>
+                         <p>Incorrect Answers: ${results.incorrectCount}</p>
+                         <p>Unanswered: ${results.unansweredCount}</p>
+                         <p>Correct Questions: ${results.correctQuestions}</p>
+                         <p>Incorrect Questions: ${results.incorrectQuestions}</p>
+                         <p>Missing: ${results.unansweredQuestions}</p>`;
+        document.getElementById('uploadResults').innerHTML = resultsHtml;
+        updateUploadStatus('Processing complete!', false);
+    }
+
+    </script>
