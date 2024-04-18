@@ -22,107 +22,133 @@ namespace ExamReader.Services.Concrete
 
         public async Task<Dictionary<int, string>> ExtractAnswersFromImageAsync(Stream imageStream)
         {
+            return await ExtractFromImageAsync(imageStream);
+        }
+        public async Task<Dictionary<int, string>> ExtractAnswerKeyFromImageAsync(Stream imageStream)
+        {
+            return await ExtractFromImageAsync(imageStream);
+        }
+
+        //private async Task<Dictionary<int, string>> ExtractFromImageAsync(Stream imageStream)
+        //{
+        //    var answers = new Dictionary<int, string>();
+        //    var textHeaders = await _computerVisionClient.ReadInStreamAsync(imageStream);
+        //    string operationLocation = textHeaders.OperationLocation;
+        //    string operationId = operationLocation.Substring(operationLocation.Length - 36);
+
+        //    ReadOperationResult result;
+        //    do
+        //    {
+        //        result = await _computerVisionClient.GetReadResultAsync(Guid.Parse(operationId));
+        //        await Task.Delay(1000);
+        //    }
+        //    while (result.Status == OperationStatusCodes.Running || result.Status == OperationStatusCodes.NotStarted);
+
+        //    if (result.Status == OperationStatusCodes.Succeeded)
+        //    {
+        //        string value = "";
+        //        foreach (var page in result.AnalyzeResult.ReadResults)
+        //        {
+
+        //            foreach (var line in page.Lines)
+        //            {
+        //                value += line.Text + " ";
+
+        //            }
+        //        }
+        //        MatchCollection matches = Regex.Matches(value, @"(\d+)\s*[:.)]?\s*([A-Ea-e])");
+        //        foreach (Match match in matches)
+        //        {
+        //            int questionNumber = int.Parse(match.Groups[1].Value);
+        //            string answer = match.Groups[2].Value.ToUpper();
+        //            answers[questionNumber] = answer;
+        //        }
+        //    }
+
+        //    return answers;
+        //}
+        private async Task<Dictionary<int, string>> ExtractFromImageAsync(Stream imageStream)
+        {
             var answers = new Dictionary<int, string>();
             var textHeaders = await _computerVisionClient.ReadInStreamAsync(imageStream);
             string operationLocation = textHeaders.OperationLocation;
-            var questionNumbers = new List<int>();
             string operationId = operationLocation.Substring(operationLocation.Length - 36);
 
             ReadOperationResult result;
+            int delay = 500; 
             do
             {
                 result = await _computerVisionClient.GetReadResultAsync(Guid.Parse(operationId));
-                await Task.Delay(1000); // Throttle requests to avoid spamming the service.
+                if (result.Status == OperationStatusCodes.Running || result.Status == OperationStatusCodes.NotStarted)
+                {
+                    await Task.Delay(delay);
+                    delay = Math.Min(4000, delay * 2); 
+                }
             }
             while (result.Status == OperationStatusCodes.Running || result.Status == OperationStatusCodes.NotStarted);
 
             if (result.Status == OperationStatusCodes.Succeeded)
             {
+                string value = "";
                 foreach (var page in result.AnalyzeResult.ReadResults)
                 {
-                    int currentQuestionNumber = 0;
                     foreach (var line in page.Lines)
                     {
-                        var numberMatch = Regex.Match(line.Text, @"^(\d+)$");
-                        if (numberMatch.Success)
-                        {
-                            currentQuestionNumber = int.Parse(numberMatch.Groups[1].Value);
-                            questionNumbers.Add(currentQuestionNumber);
-                        }
-                        else
-                        {
-                            var answerMatch = Regex.Match(line.Text, @"(?i)^([a-e])$");
-                            if (answerMatch.Success && currentQuestionNumber != 0)
-                            {
-                                answers[currentQuestionNumber] = answerMatch.Groups[1].Value;
-                                currentQuestionNumber = 0; // Reset for next question.
-                            }
-                        }
+                        value += line.Text + " ";
                     }
                 }
-            }
-
-            // Identify and mark unanswered questions.
-            var allQuestionNumbers = Enumerable.Range(1, questionNumbers.Max());
-            var unansweredQuestions = allQuestionNumbers.Except(questionNumbers);
-            foreach (var qNum in unansweredQuestions)
-            {
-                answers[qNum] = "Blank";
+                MatchCollection matches = Regex.Matches(value, @"(\d+)\s*[:.)]?\s*([A-Ea-e])");
+                foreach (Match match in matches)
+                {
+                    int questionNumber = int.Parse(match.Groups[1].Value);
+                    string answer = match.Groups[2].Value.ToUpper();
+                    answers[questionNumber] = answer;
+                }
             }
 
             return answers;
         }
-        public async Task<ProcessingResult> ProcessUploadedFileAsync(IFormFile fileUpload, string[] answerKey)
+
+        public async Task<ProcessingResult> ProcessUploadedFilesAsync(IFormFile answerKeyFile, IFormFile studentAnswersFile)
         {
-            // Extract answers from the uploaded image file.
-            Dictionary<int, string> extractedAnswers;
-            using (var stream = fileUpload.OpenReadStream())
-            {
-                extractedAnswers = await ExtractAnswersFromImageAsync(stream);
-            }
+            var answerKeyTask = ExtractAnswerKeyFromImageAsync(answerKeyFile.OpenReadStream());
+            var studentAnswersTask = ExtractAnswersFromImageAsync(studentAnswersFile.OpenReadStream());
 
-            // Evaluate the extracted answers against the key.
-            var correctAnswers = new List<int>();
-            var incorrectAnswers = new List<int>();
-            var missingAnswers = new List<int>();
-            for (int i = 0; i < answerKey.Length; i++)
-            {
-                int questionNumber = i + 1;
+            await Task.WhenAll(answerKeyTask, studentAnswersTask);
+            var answerKey = await answerKeyTask;
+            var studentAnswers = await studentAnswersTask;
 
-                if (extractedAnswers.TryGetValue(questionNumber, out var studentAnswer))
+            var result = new ProcessingResult();
+            foreach (var key in answerKey.Keys)
+            {
+                if (studentAnswers.TryGetValue(key, out var studentAnswer))
                 {
-                    if (string.IsNullOrWhiteSpace(studentAnswer))
+                    if (string.Equals(studentAnswer, answerKey[key], StringComparison.OrdinalIgnoreCase))
                     {
-                        missingAnswers.Add(questionNumber);
-                    }
-                    else if (studentAnswer.Equals(answerKey[i], StringComparison.OrdinalIgnoreCase))
-                    {
-                        correctAnswers.Add(questionNumber);
+                        result.CorrectAnswers.Add(key, studentAnswer);
                     }
                     else
                     {
-                        incorrectAnswers.Add(questionNumber);
+                        result.IncorrectAnswers.Add(key, studentAnswer);
                     }
                 }
                 else
                 {
-                    missingAnswers.Add(questionNumber);
+                    result.UnansweredQuestions.Add(key);
                 }
             }
 
-            // Compile and return the results.
-            var results = new ProcessingResult
-            {
-                CorrectCount = correctAnswers.Count,
-                IncorrectCount = incorrectAnswers.Count,
-                UnansweredCount = missingAnswers.Count,
-                CorrectQuestions = string.Join(", ", correctAnswers),
-                IncorrectQuestions = string.Join(", ", incorrectAnswers),
-                UnansweredQuestions = string.Join(", ", missingAnswers)
-            };
+            result.CorrectCount = result.CorrectAnswers.Count;
+            result.IncorrectCount = result.IncorrectAnswers.Count;
+            result.UnansweredCount = result.UnansweredQuestions.Count;
+            result.Success = true;
+            result.AnswerKey = answerKey;
+            result.Message = "Answers processed successfully.";
 
-            return results;
+            return result;
         }
+
+       
     }
 
 }
