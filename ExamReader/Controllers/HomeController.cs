@@ -18,19 +18,12 @@ namespace ExamReader.Controllers;
 public class HomeController : Controller
 {
     private readonly IAnswerProcessingService _answerProcessingService;
-    private readonly string[] _answerKey;
 
     public HomeController(IAnswerProcessingService answerProcessingService)
     {
         _answerProcessingService = answerProcessingService;
 
-        //Normally it will be equal to the value in the database. This is just a sample
-        _answerKey = new string[]{
-        "C", "A", "B", "C", "C", "E", "D", "C", "B", "B",
-        "B", "C", "B", "E", "A", "D", "C", "B", "B", "E",
-        "D", "B", "B", "D", "D", "A", "D", "E", "E", "C",
-        "C", "C", "E", "B", "E", "C", "D", "A", "D", "C"
-        };
+       
     }
 
     public IActionResult Upload()
@@ -38,29 +31,26 @@ public class HomeController : Controller
         return View();
     }
 
-    // POST action to handle the file upload and processing.
     [HttpPost]
-    public async Task<IActionResult> Upload(IFormFile fileUpload)
+    public async Task<IActionResult> Upload(IFormFile answerKeyFile, IFormFile studentAnswersFile)
     {
-        // Validate file upload.
-        if (fileUpload == null || fileUpload.Length == 0)
+        // Validate file uploads.
+        if (answerKeyFile == null || answerKeyFile.Length == 0 || studentAnswersFile == null || studentAnswersFile.Length == 0)
         {
-            return Json(new { success = false, message = "Please select a file to upload." });
+            return Json(new { success = false, message = "Please select both files to upload." });
         }
 
-        // Process the uploaded file.
-        var processingResult = await _answerProcessingService.ProcessUploadedFileAsync(fileUpload, _answerKey);
+        // Process the uploaded files.
+        var processingResult = await _answerProcessingService.ProcessUploadedFilesAsync(answerKeyFile, studentAnswersFile);
 
         // Return processing results as JSON.
         return Json(new
         {
             success = true,
-            message = "File has been successfully uploaded and processed.",
-            fileName = fileUpload.FileName,
+            message = "Files have been successfully uploaded and processed.",
             results = processingResult
         });
     }
-
 
     public IActionResult Index()
     {

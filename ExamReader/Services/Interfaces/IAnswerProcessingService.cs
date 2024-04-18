@@ -6,7 +6,8 @@ namespace ExamReader.Services.Interfaces
 	public interface IAnswerProcessingService
 	{
         Task<Dictionary<int, string>> ExtractAnswersFromImageAsync(Stream imageStream);
-        Task<ProcessingResult> ProcessUploadedFileAsync(IFormFile fileUpload, string[] answerKey);
+        Task<Dictionary<int, string>> ExtractAnswerKeyFromImageAsync(Stream imageStream);
+        Task<ProcessingResult> ProcessUploadedFilesAsync(IFormFile answerKeyFile, IFormFile studentAnswersFile);
 
     }
 }

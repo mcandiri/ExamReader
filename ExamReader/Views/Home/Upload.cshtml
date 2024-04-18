@@ -1,106 +1,174 @@
-﻿<div class="text-center">
-    <form id="fileUploadForm" method="post" enctype="multipart/form-data">
-        <label for="fileUpload">Select File:</label>
-        <input type="file" id="fileUpload" name="fileUpload" required />
-        <button type="submit">Upload</button>
-    </form>
-    <br>
-    <progress id="uploadProgress" value="0" max="100" style="width:100%;"></progress>
-    <p id="uploadStatus"></p>
+﻿<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <form id="fileUploadForm" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="answerKeyUpload" class="form-label">Upload Answer Key:</label>
+                            <input type="file" class="form-control" id="answerKeyUpload" name="answerKeyUpload" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="studentAnswersUpload" class="form-label">Upload Student Answers:</label>
+                            <input type="file" class="form-control" id="studentAnswersUpload" name="studentAnswersUpload" required disabled />
+                        </div>
+                        <button type="submit" class="btn btn-primary" disabled>Upload</button>
+                    </form>
+                    <progress id="uploadProgress" value="0" max="100" style="width:100%;" class="progress-bar"></progress>
+                    <p id="uploadStatus" class="mt-2"></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card" id="resultsCard" style="visibility:hidden;">
+                <div class="card-body" id="uploadResults">
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-<div id="uploadResults"></div>
 
 
-<script>
-    // This script handles the form submission and the file upload process.
-    // It prevents the default form submission, checks for file selection,
-    // uploads the file using XMLHttpRequest, and displays the upload progress.
 
-    // Prevent the default form submission and handle the upload process.
+
+<script>function checkFilesAndEnableSubmit() {
+        const answerKeyInput = document.getElementById('answerKeyUpload');
+        const studentAnswersInput = document.getElementById('studentAnswersUpload');
+        const submitButton = document.querySelector('button[type="submit"]');
+
+        if (answerKeyInput.files.length > 0 && studentAnswersInput.files.length > 0) {
+            submitButton.disabled = false;
+        } else {
+            submitButton.disabled = true;
+        }
+    }
+
+    document.getElementById('answerKeyUpload').addEventListener('change', function () {
+        const studentAnswersInput = document.getElementById('studentAnswersUpload');
+        studentAnswersInput.disabled = false;
+
+        checkFilesAndEnableSubmit();
+    });
+
+    document.getElementById('studentAnswersUpload').addEventListener('change', function () {
+
+        checkFilesAndEnableSubmit();
+    });
+
     document.getElementById('fileUploadForm').addEventListener('submit', function (e) {
-        e.preventDefault(); // Prevent the default form submission behavior.
-
-        // Reset the status messages and the progress bar before a new upload starts.
+        e.preventDefault();
         resetUploadStatus();
 
-        // Ensure a file is selected before proceeding.
-        const fileInput = document.getElementById('fileUpload');
-        if (!fileInput.files.length) {
-            updateUploadStatus('Please select a file to upload.', false);
-            return; // Exit if no file is selected.
-        }
-
-        // Prepare the file to be uploaded via FormData object.
+        const answerKeyInput = document.getElementById('answerKeyUpload');
+        const studentAnswersInput = document.getElementById('studentAnswersUpload');
         const formData = new FormData(this);
-        const xhr = new XMLHttpRequest(); // Create a new XMLHttpRequest for asynchronous file upload.
+        formData.append('answerKeyFile', answerKeyInput.files[0]);
+        formData.append('studentAnswersFile', studentAnswersInput.files[0]);
 
-        // Configure the POST request to the server-side upload handler.
+        const xhr = new XMLHttpRequest();
         xhr.open('POST', '/Home/Upload', true);
 
-        // Monitor the progress of the upload and update the progress bar accordingly.
         xhr.upload.onprogress = function (e) {
             if (e.lengthComputable) {
-                const percentComplete = (e.loaded / e.total) * 100; // Calculate the upload progress.
+                const percentComplete = (e.loaded / e.total) * 100;
                 document.getElementById('uploadProgress').value = percentComplete;
                 updateUploadStatus(Math.round(percentComplete) + '% uploaded', true);
             }
         };
 
-        // Handle the response from the server after the upload is completed.
         xhr.onload = function () {
-            if (xhr.status === 200) { // Check if the upload was successful.
+            if (xhr.status === 200) {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
-                    document.getElementById('uploadProgress').value = 100; // Ensure the progress bar shows 100%.
-                    // Display the results after a short delay for better user experience.
-                    setTimeout(function () {
-                        displayResults(response);
-                    }, 500);
+                    document.getElementById('uploadProgress').value = 100; 
+                    updateUploadStatus('Upload complete. Processing...', true);
+                    startProcessing(response); 
                 } else {
-                    // Show the error message if the upload was not successful.
                     updateUploadStatus(response.message, false);
                 }
             } else {
-                // Show a generic error message if the request failed.
                 updateUploadStatus('An error occurred during upload.', false);
             }
         };
 
-        // Send the FormData with the file to the server.
         xhr.send(formData);
     });
 
-    // Resets the upload progress bar and status messages.
-    function resetUploadStatus() {
-        document.getElementById('uploadProgress').value = 0; // Reset the progress bar to 0%.
-        document.getElementById('uploadStatus').innerText = ''; // Clear any previous status messages.
-        document.getElementById('uploadResults').innerHTML = ''; // Clear any previously displayed results.
+    function startProcessing(response) {
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 10;
+            document.getElementById('uploadProgress').value = progress;
+            updateUploadStatus(`Processing ${progress}%...`, true);
+
+            if (progress >= 100) {
+                clearInterval(interval);
+                document.getElementById('uploadProgress').value = 100; 
+                updateUploadStatus('Processing complete. Displaying results...', false);
+                displayResults(response); 
+            }
+        }, 100); 
     }
 
-    // Updates the status message displayed to the user.
-    // Indicates whether the file is currently uploading or if an error occurred.
+    function resetUploadStatus() {
+        document.getElementById('uploadProgress').value = 0;
+        document.getElementById('uploadStatus').innerText = '';
+        document.getElementById('uploadResults').innerHTML = '';
+    }
+
+    function displayResults(response) {
+        const results = response.results;
+        let resultsHtml = `<p>Correct Answers: ${results.correctCount} (${Object.keys(results.correctAnswers).join(", ")})</p>
+                       <p>Incorrect Answers: ${results.incorrectCount} (${Object.keys(results.incorrectAnswers).join(", ")})</p>
+                       <p>Unanswered or Unreadable: ${results.unansweredCount} (${results.unansweredQuestions.join(", ")})</p>`;
+
+        const answerKeys = Object.entries(results.answerKey);
+        const half = Math.ceil(answerKeys.length / 2);
+        const firstHalf = answerKeys.slice(0, half);
+        const secondHalf = answerKeys.slice(half);
+
+        // First column
+        resultsHtml += `<div class="row">
+                      <div class="col-sm-6"><p>Answer Key:</p><ul>`;
+        for (const [question, answer] of firstHalf) {
+            resultsHtml += `<li>Question ${question}: ${answer}</li>`;
+        }
+        resultsHtml += `</ul></div>`;
+
+        // Second column
+        resultsHtml += `<div class="col-sm-6"><p>Answer Key:</p><ul>`;
+        for (const [question, answer] of secondHalf) {
+            resultsHtml += `<li>Question ${question}: ${answer}</li>`;
+        }
+        resultsHtml += `</ul></div></div>`;
+
+        document.getElementById('uploadResults').innerHTML = resultsHtml;
+        document.getElementById('resultsCard').style.visibility = 'visible';
+        updateUploadStatus('Processing complete!', false);
+    }
+
+
+
+    //function displayResults(response) {
+    //    const results = response.results;
+    //    let resultsHtml = `<p>Correct Answers: ${results.correctCount} (${Object.keys(results.correctAnswers).join(", ")})</p>
+    //                   <p>Incorrect Answers: ${results.incorrectCount} (${Object.keys(results.incorrectAnswers).join(", ")})</p>
+    //                   <p>Unanswered or Unreadable: ${results.unansweredCount} (${results.unansweredQuestions.join(", ")})</p>`;
+
+    //    resultsHtml += "<p>Answer Key:</p><ul>";
+    //    for (const [question, answer] of Object.entries(results.answerKey)) {
+    //        resultsHtml += `<li>Question ${question}: ${answer}</li>`;
+    //    }
+    //    resultsHtml += "</ul>";
+
+    //    document.getElementById('uploadResults').innerHTML = resultsHtml;
+    //    updateUploadStatus('Processing complete!', false);
+    //}
+
+
     function updateUploadStatus(message, isUploading) {
         document.getElementById('uploadStatus').innerText = message;
         if (!isUploading) {
-            document.getElementById('uploadProgress').value = 0; // Reset the progress bar if not currently uploading.
+            document.getElementById('uploadProgress').value = 0;
         }
-    }
-
-    // Displays the results of the file upload and processing.
-    // Shows the counts of correct, incorrect, and unanswered questions.
-    function displayResults(response) {
-        const results = response.results; // Extract results from the response.
-        // Construct the HTML to display the results.
-        const resultsHtml = `<p>Correct Answers: ${results.correctCount}</p>
-                         <p>Incorrect Answers: ${results.incorrectCount}</p>
-                         <p>Unanswered or Unreadable: ${results.unansweredCount}</p>
-                         <p>Correct Questions: ${results.correctQuestions}</p>
-                         <p>Incorrect Questions: ${results.incorrectQuestions}</p>
-                         <p>Unanswered or Unreadable Questions: ${results.unansweredQuestions}</p>`;
-        document.getElementById('uploadResults').innerHTML = resultsHtml; // Display the results on the page.
-        updateUploadStatus('Processing complete!', false); // Update the status message.
-    }
-
-
-
-</script>
+    }</script>
