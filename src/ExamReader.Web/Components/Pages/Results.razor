@@ -123,7 +123,7 @@ else
                     @foreach (var q in analytics.QuestionStats)
                     {
                         <tr>
-                            <td style="font-weight: 600;">Q@q.QuestionNumber</td>
+                            <td style="font-weight: 600;">Q@(q.QuestionNumber)</td>
                             <td>@q.CorrectAnswer</td>
                             <td>
                                 <span style="color: @DifficultyColor(q.DifficultyIndex)">
