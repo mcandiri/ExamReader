@@ -92,7 +92,7 @@ else
                         : qr.Status == AnswerStatus.Unanswered ? "answer-cell-unanswered"
                         : "answer-cell-incorrect";
                     <tr class="@rowClass">
-                        <td style="font-weight: 600;">Q@qr.QuestionNumber</td>
+                        <td style="font-weight: 600;">Q@(qr.QuestionNumber)</td>
                         <td>@qr.CorrectAnswer</td>
                         <td>
                             @if (qr.Status == AnswerStatus.Unanswered || string.IsNullOrEmpty(qr.StudentAnswer))
