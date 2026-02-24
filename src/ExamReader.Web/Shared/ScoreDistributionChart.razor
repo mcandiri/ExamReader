@@ -1,0 +1,29 @@
+@inject IJSRuntime JS
+
+<div class="chart-container">
+    <div class="chart-title">Score Distribution</div>
+    <div id="@_elementId" class="chart-canvas" style="min-height: 300px;"></div>
+</div>
+
+@code {
+    [Parameter] public ScoreDistribution? Distribution { get; set; }
+
+    private string _elementId = $"score-dist-{Guid.NewGuid():N}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Distribution != null && Distribution.Buckets.Count > 0)
+        {
+            var data = Distribution.Buckets.Select(b => new { label = b.Label, count = b.Count }).ToList();
+            var json = System.Text.Json.JsonSerializer.Serialize(data);
+            try
+            {
+                await JS.InvokeVoidAsync("ExamReaderCharts.renderScoreDistribution", _elementId, json);
+            }
+            catch (Exception)
+            {
+                // JS interop may fail during prerendering
+            }
+        }
+    }
+}

@@ -1,0 +1,34 @@
+<div class="stat-cards">
+    <div class="stat-card highlight-blue">
+        <div class="stat-label">Total Students</div>
+        <div class="stat-value">@TotalStudents</div>
+    </div>
+    <div class="stat-card highlight-green">
+        <div class="stat-label">Average</div>
+        <div class="stat-value">@Average.ToString("F1")%</div>
+    </div>
+    <div class="stat-card highlight-purple">
+        <div class="stat-label">Median</div>
+        <div class="stat-value">@Median.ToString("F1")%</div>
+    </div>
+    <div class="stat-card highlight-yellow">
+        <div class="stat-label">Highest</div>
+        <div class="stat-value">@Highest.ToString("F1")%</div>
+    </div>
+    <div class="stat-card @PassRateColorClass">
+        <div class="stat-label">Pass Rate</div>
+        <div class="stat-value">@PassRate.ToString("F1")%</div>
+        <div class="stat-sub">@PassCount / @TotalStudents</div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int TotalStudents { get; set; }
+    [Parameter] public double Average { get; set; }
+    [Parameter] public double Median { get; set; }
+    [Parameter] public double Highest { get; set; }
+    [Parameter] public double PassRate { get; set; }
+    [Parameter] public int PassCount { get; set; }
+
+    private string PassRateColorClass => PassRate >= 70 ? "highlight-green" : PassRate >= 50 ? "highlight-yellow" : "highlight-red";
+}

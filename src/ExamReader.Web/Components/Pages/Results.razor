@@ -1,0 +1,257 @@
+@page "/results"
+@inject ExamReader.Web.Services.ExamSessionService SessionService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Results Dashboard - ExamReader</PageTitle>
+
+@if (!SessionService.HasResults)
+{
+    <div class="page-header">
+        <h1>Results</h1>
+        <p>No results available. Try the demo or process an exam first.</p>
+    </div>
+    <div class="card" style="text-align: center; padding: 48px;">
+        <p style="color: var(--text-secondary); margin-bottom: 16px;">No exam data loaded.</p>
+        <div class="btn-group" style="justify-content: center;">
+            <a href="/demo" class="btn btn-primary">Try Demo</a>
+            <a href="/exam-setup" class="btn">Setup Exam</a>
+        </div>
+    </div>
+}
+else
+{
+    var analytics = SessionService.Analytics!;
+    var results = SessionService.GradingResults;
+    var answerKey = SessionService.CurrentExam?.AnswerKey;
+
+    <div class="page-header">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <h1>@(analytics.ExamTitle ?? "Exam Results")</h1>
+                <p>@analytics.TotalStudents students &middot; @(answerKey?.TotalQuestions ?? 0) questions</p>
+            </div>
+            <ExportButtons Results="results" Analytics="analytics" AnswerKey="answerKey" />
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <ClassSummaryPanel
+        TotalStudents="analytics.TotalStudents"
+        Average="analytics.ClassAverage"
+        Median="analytics.Median"
+        Highest="analytics.HighestScore"
+        PassRate="analytics.PassRate"
+        PassCount="analytics.PassCount" />
+
+    <!-- Charts Row -->
+    <div class="grid-2">
+        <ScoreDistributionChart Distribution="analytics.Distribution" />
+        <div class="chart-container">
+            <div class="chart-title">Pass / Fail</div>
+            <div id="pass-fail-chart" style="display: flex; justify-content: center; min-height: 250px;"></div>
+        </div>
+    </div>
+
+    <!-- Student Results Table -->
+    <div class="section-header">
+        <h2>Student Results</h2>
+        <span style="color: var(--text-secondary); font-size: 0.85rem;">
+            Click column headers to sort
+        </span>
+    </div>
+    <div class="table-container" style="margin-bottom: 32px;">
+        <table>
+            <thead>
+                <tr>
+                    <th class="@SortClass("rank")" @onclick="@(() => Sort("rank"))">Rank</th>
+                    <th class="@SortClass("name")" @onclick="@(() => Sort("name"))">Name</th>
+                    <th class="@SortClass("score")" @onclick="@(() => Sort("score"))">Score</th>
+                    <th class="@SortClass("grade")" @onclick="@(() => Sort("grade"))">Grade</th>
+                    <th class="@SortClass("status")" @onclick="@(() => Sort("status"))">Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var student in _sortedStudents)
+                {
+                    <tr>
+                        <td>@student.Rank</td>
+                        <td style="font-weight: 500;">@student.StudentName</td>
+                        <td>@student.Percentage.ToString("F1")%</td>
+                        <td>
+                            <span class="@GradeClass(student.LetterGrade)">@student.LetterGrade</span>
+                        </td>
+                        <td>
+                            <span class="badge @(student.Passed ? "badge-pass" : "badge-fail")">
+                                @(student.Passed ? "Pass" : "Fail")
+                            </span>
+                        </td>
+                        <td>
+                            <a href="/student/@student.StudentId" class="btn btn-sm">View</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Question Analysis Table -->
+    @if (analytics.QuestionStats.Count > 0)
+    {
+        <div class="section-header">
+            <h2>Question Analysis</h2>
+            @{ var flaggedCount = analytics.QuestionStats.Count(q => q.FlaggedForReview); }
+            @if (flaggedCount > 0)
+            {
+                <span class="badge badge-warning">@flaggedCount flagged</span>
+            }
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Q#</th>
+                        <th>Correct Answer</th>
+                        <th>Difficulty</th>
+                        <th>Discrimination</th>
+                        <th>Most Wrong Answer</th>
+                        <th>Flag</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var q in analytics.QuestionStats)
+                    {
+                        <tr>
+                            <td style="font-weight: 600;">Q@q.QuestionNumber</td>
+                            <td>@q.CorrectAnswer</td>
+                            <td>
+                                <span style="color: @DifficultyColor(q.DifficultyIndex)">
+                                    @q.DifficultyIndex.ToString("F2")
+                                </span>
+                            </td>
+                            <td>
+                                <span style="color: @DiscriminationColor(q.DiscriminationIndex)">
+                                    @q.DiscriminationIndex.ToString("F2")
+                                </span>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(q.MostCommonWrongAnswer))
+                                {
+                                    <span>@q.MostCommonWrongAnswer</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--text-secondary);">--</span>
+                                }
+                            </td>
+                            <td>
+                                @if (q.FlaggedForReview)
+                                {
+                                    <span class="warning-icon" title="@q.FlagReason">
+                                        &#9888; @q.FlagReason
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private List<StudentAnalytics> _sortedStudents = new();
+    private string _sortColumn = "rank";
+    private bool _sortAscending = true;
+
+    protected override void OnInitialized()
+    {
+        if (SessionService.HasResults && SessionService.Analytics != null)
+        {
+            _sortedStudents = SessionService.Analytics.StudentStats
+                .OrderBy(s => s.Rank)
+                .ToList();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (SessionService.HasResults && SessionService.Analytics != null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync(
+                    "ExamReaderCharts.renderPassFailChart",
+                    "pass-fail-chart",
+                    SessionService.Analytics.PassCount,
+                    SessionService.Analytics.FailCount);
+            }
+            catch (Exception)
+            {
+                // JS interop may not be available during prerender
+            }
+        }
+    }
+
+    private void Sort(string column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+
+        _sortedStudents = _sortColumn switch
+        {
+            "rank" => _sortAscending
+                ? _sortedStudents.OrderBy(s => s.Rank).ToList()
+                : _sortedStudents.OrderByDescending(s => s.Rank).ToList(),
+            "name" => _sortAscending
+                ? _sortedStudents.OrderBy(s => s.StudentName).ToList()
+                : _sortedStudents.OrderByDescending(s => s.StudentName).ToList(),
+            "score" => _sortAscending
+                ? _sortedStudents.OrderBy(s => s.Percentage).ToList()
+                : _sortedStudents.OrderByDescending(s => s.Percentage).ToList(),
+            "grade" => _sortAscending
+                ? _sortedStudents.OrderBy(s => s.LetterGrade).ToList()
+                : _sortedStudents.OrderByDescending(s => s.LetterGrade).ToList(),
+            "status" => _sortAscending
+                ? _sortedStudents.OrderBy(s => s.Passed).ToList()
+                : _sortedStudents.OrderByDescending(s => s.Passed).ToList(),
+            _ => _sortedStudents
+        };
+    }
+
+    private string SortClass(string column) => _sortColumn == column ? "sorted" : "";
+
+    private static string GradeClass(string grade) => grade switch
+    {
+        "A" or "A+" or "A-" => "grade-a",
+        "B" or "B+" or "B-" => "grade-b",
+        "C" or "C+" or "C-" => "grade-c",
+        "D" or "D+" or "D-" => "grade-d",
+        _ => "grade-f"
+    };
+
+    private static string DifficultyColor(double index) => index switch
+    {
+        >= 0.8 => "var(--accent-green)",
+        >= 0.6 => "var(--accent-blue)",
+        >= 0.4 => "var(--accent-yellow)",
+        _ => "var(--accent-red)"
+    };
+
+    private static string DiscriminationColor(double index) => index switch
+    {
+        >= 0.4 => "var(--accent-green)",
+        >= 0.2 => "var(--accent-blue)",
+        >= 0.0 => "var(--accent-yellow)",
+        _ => "var(--accent-red)"
+    };
+}

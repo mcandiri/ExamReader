@@ -1,0 +1,147 @@
+@page "/student/{StudentId}"
+@inject ExamReader.Web.Services.ExamSessionService SessionService
+@inject NavigationManager Navigation
+
+<PageTitle>Student Detail - ExamReader</PageTitle>
+
+@if (_result == null || _studentAnalytics == null)
+{
+    <div class="page-header">
+        <h1>Student Not Found</h1>
+        <p>No data available for this student.</p>
+    </div>
+    <div class="card" style="text-align: center; padding: 48px;">
+        <p style="color: var(--text-secondary); margin-bottom: 16px;">The student could not be found in the current session.</p>
+        <a href="/results" class="btn btn-primary">Back to Results</a>
+    </div>
+}
+else
+{
+    <div style="margin-bottom: 24px;">
+        <a href="/results" class="btn btn-sm">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+            </svg>
+            Back to Results
+        </a>
+    </div>
+
+    <ScoreCard
+        StudentName="@_result.StudentName"
+        StudentId="@_result.StudentId"
+        Percentage="@_result.Percentage"
+        Grade="@_result.LetterGrade"
+        Rank="@_studentAnalytics.Rank"
+        Correct="@_result.Correct"
+        TotalQuestions="@_result.TotalQuestions" />
+
+    <div class="grid-2" style="margin-bottom: 24px;">
+        <div class="card">
+            <div class="card-header">Performance Summary</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem;">Raw Score</div>
+                    <div style="font-size: 1.2rem; font-weight: 600;">@_result.RawScore / @_result.MaxScore</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem;">Percentile</div>
+                    <div style="font-size: 1.2rem; font-weight: 600;">@_studentAnalytics.Percentile.ToString("F1")%</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem;">Incorrect</div>
+                    <div style="font-size: 1.2rem; font-weight: 600; color: var(--accent-red);">@_result.Incorrect</div>
+                </div>
+                <div>
+                    <div style="color: var(--text-secondary); font-size: 0.8rem;">Unanswered</div>
+                    <div style="font-size: 1.2rem; font-weight: 600; color: var(--text-secondary);">@_result.Unanswered</div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Status</div>
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 3rem; font-weight: 800; color: @(_result.Passed ? "var(--accent-green)" : "var(--accent-red)");">
+                    @(_result.Passed ? "PASS" : "FAIL")
+                </div>
+                <div style="color: var(--text-secondary); margin-top: 8px;">
+                    Z-Score: @_studentAnalytics.ZScore.ToString("F2")
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-header">
+        <h2>Per-Question Breakdown</h2>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Q#</th>
+                    <th>Correct Answer</th>
+                    <th>Student Answer</th>
+                    <th>Status</th>
+                    <th>Points</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var qr in _result.QuestionResults.OrderBy(q => q.QuestionNumber))
+                {
+                    var rowClass = qr.IsCorrect ? "answer-cell-correct"
+                        : qr.Status == AnswerStatus.Unanswered ? "answer-cell-unanswered"
+                        : "answer-cell-incorrect";
+                    <tr class="@rowClass">
+                        <td style="font-weight: 600;">Q@qr.QuestionNumber</td>
+                        <td>@qr.CorrectAnswer</td>
+                        <td>
+                            @if (qr.Status == AnswerStatus.Unanswered || string.IsNullOrEmpty(qr.StudentAnswer))
+                            {
+                                <span class="answer-unanswered">--</span>
+                            }
+                            else if (qr.IsCorrect)
+                            {
+                                <span class="answer-correct">@qr.StudentAnswer</span>
+                            }
+                            else
+                            {
+                                <span class="answer-incorrect">@qr.StudentAnswer</span>
+                            }
+                        </td>
+                        <td>
+                            @if (qr.IsCorrect)
+                            {
+                                <span class="answer-correct">&#10003;</span>
+                            }
+                            else if (qr.Status == AnswerStatus.Unanswered)
+                            {
+                                <span class="answer-unanswered">&#8212;</span>
+                            }
+                            else
+                            {
+                                <span class="answer-incorrect">&#10007;</span>
+                            }
+                        </td>
+                        <td>@qr.PointsEarned / @qr.PointsPossible</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public string StudentId { get; set; } = string.Empty;
+
+    private GradingResult? _result;
+    private StudentAnalytics? _studentAnalytics;
+
+    protected override void OnInitialized()
+    {
+        if (SessionService.HasResults)
+        {
+            _result = SessionService.GetStudentResult(StudentId);
+            _studentAnalytics = SessionService.GetStudentAnalytics(StudentId);
+        }
+    }
+}

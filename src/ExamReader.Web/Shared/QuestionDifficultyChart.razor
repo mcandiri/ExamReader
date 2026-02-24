@@ -1,0 +1,34 @@
+@inject IJSRuntime JS
+
+<div class="chart-container">
+    <div class="chart-title">Question Difficulty</div>
+    <div id="@_elementId" class="chart-canvas" style="min-height: @(_chartHeight)px;"></div>
+</div>
+
+@code {
+    [Parameter] public List<QuestionAnalytics>? QuestionStats { get; set; }
+
+    private string _elementId = $"difficulty-{Guid.NewGuid():N}";
+    private int _chartHeight => (QuestionStats?.Count ?? 0) * 34 + 60;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (QuestionStats != null && QuestionStats.Count > 0)
+        {
+            var data = QuestionStats.Select(q => new
+            {
+                label = $"Q{q.QuestionNumber}",
+                value = Math.Round(q.DifficultyIndex * 100, 1)
+            }).ToList();
+            var json = System.Text.Json.JsonSerializer.Serialize(data);
+            try
+            {
+                await JS.InvokeVoidAsync("ExamReaderCharts.renderDifficultyChart", _elementId, json);
+            }
+            catch (Exception)
+            {
+                // JS interop may fail during prerendering
+            }
+        }
+    }
+}
