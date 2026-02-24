@@ -1,0 +1,151 @@
+@inject IJSRuntime JS
+
+<div class="export-buttons">
+    <button class="btn btn-sm" @onclick="ExportHtml" disabled="@_exporting">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+        </svg>
+        HTML Report
+    </button>
+    <button class="btn btn-sm" @onclick="ExportJson" disabled="@_exporting">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+        </svg>
+        JSON
+    </button>
+    <button class="btn btn-sm" @onclick="ExportCsv" disabled="@_exporting">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <line x1="3" y1="9" x2="21" y2="9" />
+            <line x1="3" y1="15" x2="21" y2="15" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+        </svg>
+        CSV
+    </button>
+</div>
+
+@code {
+    [Parameter] public List<GradingResult> Results { get; set; } = new();
+    [Parameter] public ExamAnalytics? Analytics { get; set; }
+    [Parameter] public AnswerKey? AnswerKey { get; set; }
+
+    private bool _exporting;
+
+    private ReportData BuildReportData()
+    {
+        return new ReportData
+        {
+            ReportTitle = Analytics?.ExamTitle ?? "Exam Report",
+            GeneratedAt = DateTime.UtcNow,
+            AnswerKey = AnswerKey ?? new AnswerKey(),
+            Results = Results,
+            Analytics = Analytics ?? new ExamAnalytics()
+        };
+    }
+
+    private async Task ExportJson()
+    {
+        _exporting = true;
+        try
+        {
+            var generator = new JsonReportGenerator();
+            var bytes = await generator.GenerateAsync(BuildReportData());
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("ExamReaderCharts.downloadFile", "exam-report.json", "application/json", base64);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private async Task ExportCsv()
+    {
+        _exporting = true;
+        try
+        {
+            var generator = new CsvReportGenerator();
+            var bytes = await generator.GenerateAsync(BuildReportData());
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("ExamReaderCharts.downloadFile", "exam-report.csv", "text/csv", base64);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private async Task ExportHtml()
+    {
+        _exporting = true;
+        try
+        {
+            var html = GenerateHtmlReport();
+            var bytes = System.Text.Encoding.UTF8.GetBytes(html);
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("ExamReaderCharts.downloadFile", "exam-report.html", "text/html", base64);
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private string GenerateHtmlReport()
+    {
+        var analytics = Analytics ?? new ExamAnalytics();
+        var sb = new System.Text.StringBuilder();
+
+        sb.AppendLine("<!DOCTYPE html>");
+        sb.AppendLine("<html><head><meta charset='utf-8'>");
+        sb.AppendLine($"<title>{analytics.ExamTitle} - Report</title>");
+        sb.AppendLine("<style>");
+        sb.AppendLine("body { font-family: -apple-system, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #0d1117; color: #e6edf3; }");
+        sb.AppendLine("h1 { color: #58a6ff; } h2 { color: #e6edf3; border-bottom: 1px solid #30363d; padding-bottom: 8px; }");
+        sb.AppendLine("table { width: 100%; border-collapse: collapse; margin: 16px 0; }");
+        sb.AppendLine("th, td { padding: 8px 12px; border: 1px solid #30363d; text-align: left; }");
+        sb.AppendLine("th { background: #161b22; color: #8b949e; }");
+        sb.AppendLine(".pass { color: #3fb950; } .fail { color: #f85149; }");
+        sb.AppendLine(".stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 16px 0; }");
+        sb.AppendLine(".stat { background: #1c2128; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; min-width: 120px; }");
+        sb.AppendLine(".stat-val { font-size: 1.5rem; font-weight: bold; color: #58a6ff; } .stat-lbl { font-size: 0.8rem; color: #8b949e; }");
+        sb.AppendLine("</style></head><body>");
+
+        sb.AppendLine($"<h1>{analytics.ExamTitle}</h1>");
+        sb.AppendLine($"<p>Generated: {DateTime.Now:yyyy-MM-dd HH:mm}</p>");
+
+        sb.AppendLine("<h2>Class Summary</h2>");
+        sb.AppendLine("<div class='stats'>");
+        sb.AppendLine($"<div class='stat'><div class='stat-val'>{analytics.TotalStudents}</div><div class='stat-lbl'>Students</div></div>");
+        sb.AppendLine($"<div class='stat'><div class='stat-val'>{analytics.ClassAverage:F1}%</div><div class='stat-lbl'>Average</div></div>");
+        sb.AppendLine($"<div class='stat'><div class='stat-val'>{analytics.Median:F1}%</div><div class='stat-lbl'>Median</div></div>");
+        sb.AppendLine($"<div class='stat'><div class='stat-val'>{analytics.HighestScore:F1}%</div><div class='stat-lbl'>Highest</div></div>");
+        sb.AppendLine($"<div class='stat'><div class='stat-val'>{analytics.PassRate:F1}%</div><div class='stat-lbl'>Pass Rate</div></div>");
+        sb.AppendLine("</div>");
+
+        sb.AppendLine("<h2>Student Results</h2>");
+        sb.AppendLine("<table><thead><tr><th>Rank</th><th>Name</th><th>Score</th><th>Grade</th><th>Status</th></tr></thead><tbody>");
+        var ranked = Results.OrderByDescending(r => r.Percentage).ThenBy(r => r.StudentName).ToList();
+        for (int i = 0; i < ranked.Count; i++)
+        {
+            var r = ranked[i];
+            var statusClass = r.Passed ? "pass" : "fail";
+            sb.AppendLine($"<tr><td>{i + 1}</td><td>{r.StudentName}</td><td>{r.Percentage:F1}%</td><td>{r.LetterGrade}</td><td class='{statusClass}'>{(r.Passed ? "Pass" : "Fail")}</td></tr>");
+        }
+        sb.AppendLine("</tbody></table>");
+
+        sb.AppendLine("<h2>Question Analysis</h2>");
+        sb.AppendLine("<table><thead><tr><th>Q#</th><th>Correct</th><th>Difficulty</th><th>Discrimination</th><th>Most Wrong</th><th>Flag</th></tr></thead><tbody>");
+        foreach (var q in analytics.QuestionStats)
+        {
+            var flag = q.FlaggedForReview ? $"<span style='color:#d29922'>&#9888; {q.FlagReason}</span>" : "";
+            sb.AppendLine($"<tr><td>Q{q.QuestionNumber}</td><td>{q.CorrectAnswer}</td><td>{q.DifficultyIndex:F2}</td><td>{q.DiscriminationIndex:F2}</td><td>{q.MostCommonWrongAnswer}</td><td>{flag}</td></tr>");
+        }
+        sb.AppendLine("</tbody></table>");
+
+        sb.AppendLine("</body></html>");
+        return sb.ToString();
+    }
+}

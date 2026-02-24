@@ -1,0 +1,77 @@
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">Processing Progress</div>
+
+    <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span>@Processed of @Total sheets processed</span>
+            <span style="color: var(--accent-blue); font-weight: 600;">@PercentComplete%</span>
+        </div>
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" style="width: @PercentComplete%"></div>
+        </div>
+    </div>
+
+    <div class="processing-list">
+        @foreach (var item in Items)
+        {
+            <div class="processing-item">
+                <div class="status-icon @item.StatusClass">
+                    @if (item.Status == ProcessingStatus.Done)
+                    {
+                        <span>&#10003;</span>
+                    }
+                    else if (item.Status == ProcessingStatus.Error)
+                    {
+                        <span>&#10007;</span>
+                    }
+                    else if (item.Status == ProcessingStatus.Processing)
+                    {
+                        <span class="spinner" style="width:16px;height:16px;border-width:2px;"></span>
+                    }
+                    else
+                    {
+                        <span>&#8226;</span>
+                    }
+                </div>
+                <div style="flex:1;">
+                    <div style="font-weight: 500;">@item.Name</div>
+                    @if (!string.IsNullOrEmpty(item.Message))
+                    {
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">@item.Message</div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int Processed { get; set; }
+    [Parameter] public List<ProcessingItem> Items { get; set; } = new();
+
+    private int PercentComplete => Total > 0 ? (int)Math.Round((double)Processed / Total * 100) : 0;
+
+    public class ProcessingItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public ProcessingStatus Status { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string StatusClass => Status switch
+        {
+            ProcessingStatus.Pending => "pending",
+            ProcessingStatus.Processing => "processing",
+            ProcessingStatus.Done => "done",
+            ProcessingStatus.Error => "error",
+            _ => "pending"
+        };
+    }
+
+    public enum ProcessingStatus
+    {
+        Pending,
+        Processing,
+        Done,
+        Error
+    }
+}

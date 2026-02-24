@@ -1,0 +1,50 @@
+<div class="student-header">
+    <div class="student-avatar">@Initials</div>
+    <div class="student-info">
+        <h2>@StudentName</h2>
+        <p>ID: @StudentId</p>
+    </div>
+    <div class="student-stats">
+        <div class="student-stat">
+            <div class="value @GradeColorClass">@Percentage%</div>
+            <div class="label">Score</div>
+        </div>
+        <div class="student-stat">
+            <div class="value @GradeColorClass">@Grade</div>
+            <div class="label">Grade</div>
+        </div>
+        <div class="student-stat">
+            <div class="value">#@Rank</div>
+            <div class="label">Rank</div>
+        </div>
+        <div class="student-stat">
+            <div class="value">@Correct/@TotalQuestions</div>
+            <div class="label">Correct</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string StudentName { get; set; } = string.Empty;
+    [Parameter] public string StudentId { get; set; } = string.Empty;
+    [Parameter] public double Percentage { get; set; }
+    [Parameter] public string Grade { get; set; } = string.Empty;
+    [Parameter] public int Rank { get; set; }
+    [Parameter] public int Correct { get; set; }
+    [Parameter] public int TotalQuestions { get; set; }
+
+    private string Initials => string.IsNullOrEmpty(StudentName)
+        ? "?"
+        : string.Join("", StudentName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(w => w[0]));
+
+    private string GradeColorClass => Grade switch
+    {
+        "A" or "A+" or "A-" => "grade-a",
+        "B" or "B+" or "B-" => "grade-b",
+        "C" or "C+" or "C-" => "grade-c",
+        "D" or "D+" or "D-" => "grade-d",
+        _ => "grade-f"
+    };
+}

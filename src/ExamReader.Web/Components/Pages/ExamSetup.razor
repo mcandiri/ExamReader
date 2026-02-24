@@ -1,0 +1,166 @@
+@page "/exam-setup"
+@inject ExamReader.Web.Services.ExamSessionService SessionService
+@inject NavigationManager Navigation
+
+<PageTitle>Exam Setup - ExamReader</PageTitle>
+
+<div class="page-header">
+    <h1>Exam Setup</h1>
+    <p>Configure the answer key and grading options for your exam.</p>
+</div>
+
+<div class="grid-2">
+    <div>
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">Exam Details</div>
+
+            <div class="form-group">
+                <label>Exam Title</label>
+                <input type="text" class="form-control" @bind="_title" placeholder="e.g., Biology Midterm" />
+            </div>
+
+            <div class="form-group">
+                <label>Number of Questions</label>
+                <input type="number" class="form-control" @bind="_questionCount" min="1" max="200"
+                       @bind:after="OnQuestionCountChanged" />
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Grading Options</div>
+
+            <div class="form-group">
+                <label>Negative Marking</label>
+                <div class="toggle-group">
+                    <label class="toggle">
+                        <input type="checkbox" @bind="_options.NegativeMarking" />
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span style="color: var(--text-secondary); font-size: 0.85rem;">
+                        @(_options.NegativeMarking ? "Enabled - incorrect answers penalized" : "Disabled")
+                    </span>
+                </div>
+            </div>
+
+            @if (_options.NegativeMarking)
+            {
+                <div class="form-group">
+                    <label>Penalty per Wrong Answer: @_options.NegativePenalty.ToString("F2")</label>
+                    <input type="range" min="0" max="1" step="0.05" @bind="_options.NegativePenalty" />
+                </div>
+            }
+
+            <div class="form-group">
+                <label>Passing Score: @_options.PassingScore.ToString("F0")%</label>
+                <input type="range" min="0" max="100" step="5" @bind="_options.PassingScore" />
+            </div>
+
+            <div class="form-group">
+                <label>Grade Scale</label>
+                <select class="form-control" @bind="_gradeScaleValue">
+                    <option value="Standard">Standard (A/B/C/D/F)</option>
+                    <option value="PlusMinus">Plus/Minus (A/A-/B+/B/...)</option>
+                    <option value="PassFail">Pass/Fail</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <AnswerKeyEditor AnswerKey="_answerKey" AnswerKeyChanged="OnAnswerKeyChanged" />
+    </div>
+</div>
+
+<div style="margin-top: 24px;">
+    <button class="btn btn-primary btn-lg" @onclick="SaveAndProceed">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+        </svg>
+        Save and Upload Sheets
+    </button>
+</div>
+
+@code {
+    private string _title = string.Empty;
+    private int _questionCount = 20;
+    private AnswerKey _answerKey = new();
+    private GradingOptions _options = new();
+
+    private string _gradeScaleValue
+    {
+        get => _options.GradeScale.ToString();
+        set => _options.GradeScale = Enum.Parse<LetterGradeScale>(value);
+    }
+
+    protected override void OnInitialized()
+    {
+        if (SessionService.CurrentExam != null)
+        {
+            _title = SessionService.CurrentExam.Title;
+            _questionCount = SessionService.CurrentExam.TotalQuestions;
+            _answerKey = SessionService.CurrentExam.AnswerKey;
+            _options = SessionService.GradingOptions;
+        }
+        else
+        {
+            BuildAnswerKey();
+        }
+    }
+
+    private void OnQuestionCountChanged()
+    {
+        if (_questionCount < 1) _questionCount = 1;
+        if (_questionCount > 200) _questionCount = 200;
+        BuildAnswerKey();
+    }
+
+    private void BuildAnswerKey()
+    {
+        var questions = new List<Question>();
+        for (int i = 0; i < _questionCount; i++)
+        {
+            var existing = _answerKey.Questions.FirstOrDefault(q => q.Number == i + 1);
+            questions.Add(existing ?? new Question
+            {
+                Number = i + 1,
+                CorrectAnswer = "A",
+                Options = new List<string> { "A", "B", "C", "D" }
+            });
+        }
+        _answerKey = new AnswerKey
+        {
+            ExamTitle = _title,
+            Questions = questions
+        };
+    }
+
+    private void OnAnswerKeyChanged(AnswerKey key)
+    {
+        _answerKey = key;
+    }
+
+    private void SaveAndProceed()
+    {
+        _answerKey.ExamTitle = _title;
+        _answerKey.ExamId = Guid.NewGuid().ToString();
+
+        var exam = new ExamDefinition
+        {
+            Title = _title,
+            TotalQuestions = _questionCount,
+            AnswerKey = _answerKey,
+            Template = new AnswerSheetTemplate
+            {
+                TotalQuestions = _questionCount,
+                AnswerOptions = new List<string> { "A", "B", "C", "D" }
+            }
+        };
+
+        SessionService.CurrentExam = exam;
+        SessionService.GradingOptions = _options;
+
+        Navigation.NavigateTo("/processing");
+    }
+}

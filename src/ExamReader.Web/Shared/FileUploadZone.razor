@@ -1,0 +1,55 @@
+@using Microsoft.AspNetCore.Components.Forms
+
+<div class="upload-zone @(_isDragOver ? "drag-over" : "")"
+     @ondragenter="OnDragEnter"
+     @ondragleave="OnDragLeave"
+     @ondragover:preventDefault
+     @ondrop:preventDefault>
+    <InputFile OnChange="OnFileSelected" multiple accept=".png,.jpg,.jpeg,.pdf,.tiff" style="display:none" id="fileInput" />
+    <label for="fileInput" style="cursor:pointer; display:block;">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <h3>Drop answer sheets here or click to upload</h3>
+        <p>Supports PNG, JPG, PDF, TIFF</p>
+    </label>
+
+    @if (UploadedFiles.Count > 0)
+    {
+        <div style="margin-top: 16px; text-align: left;">
+            <p style="color: var(--accent-green); font-weight: 600;">@UploadedFiles.Count file(s) selected</p>
+            @foreach (var file in UploadedFiles)
+            {
+                <div style="font-size: 0.85rem; color: var(--text-secondary); padding: 4px 0;">
+                    @file.Name (@FormatFileSize(file.Size))
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback<IReadOnlyList<IBrowserFile>> OnFilesUploaded { get; set; }
+    [Parameter] public List<IBrowserFile> UploadedFiles { get; set; } = new();
+
+    private bool _isDragOver;
+
+    private void OnDragEnter() => _isDragOver = true;
+    private void OnDragLeave() => _isDragOver = false;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _isDragOver = false;
+        var files = e.GetMultipleFiles(100);
+        await OnFilesUploaded.InvokeAsync(files);
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+}

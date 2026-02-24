@@ -1,0 +1,113 @@
+@page "/processing"
+@inject ExamReader.Web.Services.ExamSessionService SessionService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<PageTitle>Processing - ExamReader</PageTitle>
+
+<div class="page-header">
+    <h1>Upload & Process</h1>
+    <p>Upload answer sheet images for processing.</p>
+</div>
+
+@if (SessionService.CurrentExam == null)
+{
+    <div class="card" style="text-align: center; padding: 48px;">
+        <p style="color: var(--text-secondary); margin-bottom: 16px;">No exam configured yet. Please set up your exam first.</p>
+        <a href="/exam-setup" class="btn btn-primary">Go to Exam Setup</a>
+    </div>
+}
+else
+{
+    @if (!_processing && !_completed)
+    {
+        <FileUploadZone OnFilesUploaded="OnFilesUploaded" UploadedFiles="_uploadedFiles" />
+
+        @if (_uploadedFiles.Count > 0)
+        {
+            <div style="margin-top: 24px;">
+                <button class="btn btn-primary btn-lg" @onclick="StartProcessing">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                    Process @_uploadedFiles.Count Sheet(s)
+                </button>
+            </div>
+        }
+    }
+
+    @if (_processing || _completed)
+    {
+        <ProgressTracker Total="_items.Count" Processed="_processedCount" Items="_items" />
+
+        @if (_completed)
+        {
+            <div style="margin-top: 24px; text-align: center;">
+                <a href="/results" class="btn btn-success btn-lg">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    View Results
+                </a>
+            </div>
+        }
+    }
+}
+
+@code {
+    private List<Microsoft.AspNetCore.Components.Forms.IBrowserFile> _uploadedFiles = new();
+    private List<ProgressTracker.ProcessingItem> _items = new();
+    private bool _processing;
+    private bool _completed;
+    private int _processedCount;
+    private CancellationTokenSource _cts = new();
+
+    private void OnFilesUploaded(IReadOnlyList<Microsoft.AspNetCore.Components.Forms.IBrowserFile> files)
+    {
+        _uploadedFiles = files.ToList();
+    }
+
+    private async Task StartProcessing()
+    {
+        _processing = true;
+        _completed = false;
+        _processedCount = 0;
+
+        _items = _uploadedFiles.Select(f => new ProgressTracker.ProcessingItem
+        {
+            Name = f.Name,
+            Status = ProgressTracker.ProcessingStatus.Pending
+        }).ToList();
+
+        StateHasChanged();
+
+        // Simulate processing each sheet
+        for (int i = 0; i < _items.Count; i++)
+        {
+            if (_cts.Token.IsCancellationRequested) break;
+
+            _items[i].Status = ProgressTracker.ProcessingStatus.Processing;
+            _items[i].Message = "Analyzing...";
+            StateHasChanged();
+
+            await Task.Delay(800, _cts.Token);
+
+            _items[i].Status = ProgressTracker.ProcessingStatus.Done;
+            _items[i].Message = "Complete";
+            _processedCount++;
+            StateHasChanged();
+        }
+
+        _processing = false;
+        _completed = true;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+}

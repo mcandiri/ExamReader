@@ -1,65 +1,142 @@
-# TEST READER
+# ExamReader
 
-This ASP.NET Core application leverages the Azure Computer Vision API to automate the grading of multiple-choice tests. By processing scanned images of test sheets, it identifies student answers, compares them against a predefined answer key, and generates a summary of the grading outcome. This tool aims to enhance efficiency and accuracy in grading processes for educators and academic institutions.
+> Intelligent exam grading engine for .NET — OCR-powered answer sheet processing, automatic grading, and detailed analytics for educators.
 
-## Getting Started
+[![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/mcandiri/ExamReader/actions/workflows/ci.yml/badge.svg)](https://github.com/mcandiri/ExamReader/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-100%2B%20passed-brightgreen)]()
 
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+## Why ExamReader?
 
-### Prerequisites
+Grading 100 multiple-choice exams by hand takes hours and is error-prone. ExamReader processes a stack of scanned answer sheets in seconds — with per-question analytics that reveal which topics your class struggles with.
 
-Before you begin, ensure you have the following installed:
-- [.NET 7.0 SDK](https://dotnet.microsoft.com/download)
-- Any IDE with C# support (e.g., [Visual Studio](https://visualstudio.microsoft.com/), [VS Code](https://code.visualstudio.com/))
+## Demo — Try Without Setup
 
-### Installation
-
-1. Clone the repository:
-   ```
-   git clone https://github.com/mcandiri/ExamReader.git
-   ```
-2. Navigate to the project directory:
-   ```
-   cd ExamReader
-   ```
-3. Restore the project dependencies:
-   ```
-   dotnet restore
-   ```
-4. Build the project:
-   ```
-   dotnet build
-   ```
-
-## Running the Application
-
-To start the application, run:
-```
-dotnet run --project ExamReader
+```bash
+git clone https://github.com/mcandiri/ExamReader.git
+cd ExamReader
+dotnet run --project src/ExamReader.Web
+# Open http://localhost:5000 → Click "Demo Mode"
 ```
 
-## Usage
+Pre-loaded with 25 students and 30 questions. See the full dashboard, analytics, and export features — no API keys or database needed.
 
-1. **Scan Test Sheets**: Scan or take clear photos of the completed multiple-choice test sheets.
-2. **Upload Images**: Through the application interface, upload the images for processing.
-3. **Review Results**: After processing, the application will display the grading results, including correct, incorrect, and unanswered question counts.
+## Features
 
-## Contributing
+### Multi-Provider OCR
+| Provider | Cost | Speed | Setup |
+|----------|------|-------|-------|
+| Azure Computer Vision | Pay-per-use | Fast | API key |
+| Tesseract | Free | Medium | Local install |
+| Demo Mode | Free | Instant | None |
 
-We welcome contributions from the community! If you would like to contribute to the project, please follow these steps:
+### Answer Sheet Support
+- Bubble sheets (A/B/C/D/E)
+- Grid-based answer sheets
+- Written answer extraction
 
-1. Fork the repository.
-2. Create a new feature branch: `git checkout -b feature/AmazingFeature`.
-3. Commit your changes: `git commit -m 'Add some AmazingFeature'`.
-4. Push to the branch: `git push origin feature/AmazingFeature`.
-5. Open a pull request.
+### Smart Grading
+- Configurable negative marking (-0.25 per wrong answer)
+- Weighted questions (different point values)
+- Partial credit for multi-select
+- Custom letter grade scales (A/B/C/D/F with +/- variants)
+
+### Class Analytics
+- Score distribution histogram
+- Per-question difficulty & discrimination index
+- Automatic flagging of "bad questions" (low discrimination)
+- Most common wrong answers per question
+
+### Batch Processing
+- Process entire classroom at once
+- Real-time progress tracking
+- Handles blank answers, multiple marks, smudges
+
+### Export
+- **HTML** report with charts (standalone, share via email)
+- **JSON** for integration with other systems
+- **CSV** for Excel/Google Sheets
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Blazor Server UI                     │
+│  Home │ Exam Setup │ Processing │ Results │ Demo     │
+├─────────────────────────────────────────────────────┤
+│                  ExamReader.Core                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │ OCR      │  │ Grading  │  │ Analytics│          │
+│  │ Provider │→ │ Engine   │→ │ Engine   │          │
+│  └──────────┘  └──────────┘  └──────────┘          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │ Parsing  │  │ Batch    │  │ Reports  │          │
+│  │ Engine   │  │ Processor│  │ Generator│          │
+│  └──────────┘  └──────────┘  └──────────┘          │
+├─────────────────────────────────────────────────────┤
+│  OCR Providers: Azure CV │ Tesseract │ Demo          │
+└─────────────────────────────────────────────────────┘
+```
+
+## Project Structure
+
+```
+ExamReader/
+├── src/
+│   ├── ExamReader.Core/          # Core library
+│   │   ├── Models/               # Domain models
+│   │   ├── Ocr/                  # OCR providers
+│   │   ├── Parsing/              # Answer sheet parsers
+│   │   ├── Grading/              # Grading engine
+│   │   ├── Batch/                # Batch processing
+│   │   ├── Analytics/            # Exam analytics
+│   │   ├── Reports/              # Report generators
+│   │   └── Demo/                 # Demo data
+│   └── ExamReader.Web/           # Blazor Server app
+│       ├── Components/Pages/     # Blazor pages
+│       ├── Shared/               # Shared components
+│       └── Services/             # Web services
+├── tests/
+│   ├── ExamReader.Core.Tests/    # Core library tests
+│   └── ExamReader.Web.Tests/     # Web app tests
+├── .github/workflows/ci.yml     # CI pipeline
+└── ExamReader.sln
+```
+
+## Configuration
+
+```json
+{
+  "OcrProvider": "Demo",
+  "Azure": {
+    "ComputerVision": {
+      "Endpoint": "https://your-resource.cognitiveservices.azure.com/",
+      "ApiKey": "your-api-key"
+    }
+  }
+}
+```
+
+## Born From Production
+
+> ExamReader started as a simple OCR grading tool and evolved into a comprehensive exam analysis platform while managing assessments for an education platform serving 1,500+ students. The analytics features — difficulty index, discrimination index, distractor analysis — were added after teachers requested deeper insights into their exam quality.
+
+## Security
+
+- Scanned images processed in memory, never persisted to disk
+- API keys stored in configuration only, never logged
+- No student data sent to external services in demo mode
+
+## Roadmap
+
+- [ ] OMR (Optical Mark Recognition) with OpenCV for higher accuracy
+- [ ] PDF answer sheet support
+- [ ] Multi-page answer sheet support
+- [ ] Integration with LMS platforms (Moodle, Canvas)
+- [ ] Mobile app for scanning with phone camera
+- [ ] AI-powered written answer grading (essay scoring)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-## Acknowledgments
-
-- Special thanks to the Azure Computer Vision team for providing the API that made this project possible.
-- Gratitude to all contributors for their invaluable input and feedback.
-- This project was inspired by the need to streamline educational processes and improve grading accuracy.
+[MIT](LICENSE)

@@ -1,0 +1,35 @@
+@code {
+    [Parameter] public AnswerKey AnswerKey { get; set; } = new();
+    [Parameter] public EventCallback<AnswerKey> AnswerKeyChanged { get; set; }
+}
+
+<div class="card">
+    <div class="card-header">Answer Key</div>
+    <div class="answer-grid">
+        @foreach (var question in AnswerKey.Questions)
+        {
+            <div class="answer-grid-item">
+                <span class="q-number">Q@(question.Number)</span>
+                <select value="@question.CorrectAnswer"
+                        @onchange="@(e => OnAnswerChanged(question.Number, e.Value?.ToString() ?? "A"))">
+                    @foreach (var option in question.Options)
+                    {
+                        <option value="@option" selected="@(question.CorrectAnswer == option)">@option</option>
+                    }
+                </select>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private async Task OnAnswerChanged(int questionNumber, string newAnswer)
+    {
+        var question = AnswerKey.Questions.FirstOrDefault(q => q.Number == questionNumber);
+        if (question != null)
+        {
+            question.CorrectAnswer = newAnswer;
+            await AnswerKeyChanged.InvokeAsync(AnswerKey);
+        }
+    }
+}
