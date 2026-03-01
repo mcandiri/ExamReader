@@ -1,6 +1,6 @@
 # ExamReader
 
-> Intelligent exam grading engine for .NET — OCR-powered answer sheet processing, automatic grading, and detailed analytics for educators.
+> Exam grading tool for .NET — OCR-powered answer sheet processing, automatic grading, and analytics for educators.
 
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -57,6 +57,18 @@ Pre-loaded with 25 students and 30 questions. See the full dashboard, analytics,
 - **HTML** report with charts (standalone, share via email)
 - **JSON** for integration with other systems
 - **CSV** for Excel/Google Sheets
+
+## Limitations
+
+- **OCR accuracy depends on scan quality** — blurry or skewed images will produce unreliable results. Clean, high-contrast scans work best.
+
+- **Demo mode uses synthetic data** — the 25-student dataset is generated to show realistic score distributions, not captured from real exams.
+
+- **Azure and Tesseract providers require setup** — Demo mode is the only zero-config option.
+
+- **No OMR (Optical Mark Recognition)** — current implementation uses text-based OCR, not dedicated bubble detection. OMR is on the roadmap.
+
+- **In-memory only** — no database persistence. Results are available during the session and via export.
 
 ## Architecture
 
@@ -120,7 +132,7 @@ ExamReader/
 
 ## Born From Production
 
-> ExamReader started as a simple OCR grading tool and evolved into a comprehensive exam analysis platform while managing assessments for an education platform serving 1,500+ students. The analytics features — difficulty index, discrimination index, distractor analysis — were added after teachers requested deeper insights into their exam quality.
+> Started as a quick Azure Computer Vision experiment to automate multiple-choice grading. Over time, teachers asked for deeper insights — "which questions are too easy?", "which ones don't discriminate between good and weak students?". The analytics module (difficulty index, discrimination index, distractor analysis) was added to answer those questions.
 
 ## Security
 
